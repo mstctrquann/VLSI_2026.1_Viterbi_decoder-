@@ -1,0 +1,828 @@
+               ĐẠI HỌC BÁCH KHOA HÀ NỘI
+                 TRƯỜNG ĐIỆN – ĐIỆN TỬ
+
+
+
+
+         MÔN: THIẾT KẾ VLSI ET4340
+
+   Thiết kế bộ giải mã sử dụng thuật toán
+                   Viterbi
+
+Giảng viên hướng dẫn:                    TS. Nguyễn Vũ Thắng
+Mã lớp:                                  173881
+
+
+Nhóm 27:
+Đỗ Trường Quân                                       20233592
+Ngô Hoàng Việt                                       20233712
+Lý Đỗ Minh Hiển                                      20233389
+Nguyễn Nghĩa Thái Dương                              20233359
+
+
+
+
+                          HÀ NỘI, 2026
+                                  Phân công công việc trong tuần 1
+            Thành viên                 Nội dung thực hiện                  Đóng góp
+         Đỗ Trường Quân     Khảo sát các thiết kế theo                    Hoàn thành
+                            hướng FSM cải tiến cùng kiến
+                            trúc pipeline cho bộ ACS,
+                            BMU và SMU song song, xây
+                            dựng sơ bộ hệ thống và đánh
+                            giá ưu nhược điểm
+        Ngô Hoàng Việt      Khảo sát các thiết kế theo                    Hoàn thành
+                            hướng FSM-based, xây dựng
+                            sơ bộ hệ thống và đánh giá ưu
+                            nhược điểm
+       Lý Đỗ Minh Hiển      Tìm hiểu lý thuyết phần mã                    Hoàn thành
+                            hóa
+                            Viết báo cáo và giải thích chi
+                            tiết phần tìm hiểu được
+    Nguyễn Nghĩa Thái Dương Tìm hiểu lý thuyết phần giải                  Hoàn thành
+                            mã theo thuật toán Viterbi
+                            Viết báo cáo và giải thích chi
+                            tiết phần tìm hiểu
+
+Link github dự án: ( Bổ sung sau )
+Link drive phân công việc hàng tuần:
+https://docs.google.com/spreadsheets/d/1YJ1TJ2VE5OWQ-
+RDzJnSpGiIAjpktlqk_OdDu5M9t8ic/edit?usp=sharing
+Link drive tổng hợp tài liệu của dự án:
+https://drive.google.com/drive/folders/1Xlk68cGMLBa23XJXdvjGfwCdklOrRmu4?usp=sharing
+                                                                             Mục lục
+A. Tìm hiểu cơ sở lý thuyết ......................................................................................................................................... 4
+   1. Khái niệm mã tích chập ....................................................................................................................................... 4
+   2. Mã hóa mã tích chập ........................................................................................................................................... 5
+   3. Quá trình giải mã ............................................................................................................................................... 10
+       3.1 Thuật toán Viterbi ....................................................................................................................................... 10
+       3.2 Khoảng cách Hamming ............................................................................................................................... 11
+   3.3. Trellis ............................................................................................................................................................. 11
+       3.3.1. Khái niệm ................................................................................................................................................ 11
+       3.3.2. Xây dựng sơ đồ lưới (trellis) ................................................................................................................... 11
+       3.3.3. Nguyên lý tìm đường đi tối ưu ................................................................................................................ 11
+       3.3.4. Quá trình truy vết (Traceback) ................................................................................................................ 12
+       3.3.5. Ví dụ minh họa chứng minh thuật toán có khả năng sửa lỗi ................................................................... 12
+B. Đề xuất phương án thiết kế ................................................................................................................................... 17
+   1. Nguyên lý giải mã ............................................................................................................................................. 17
+   2 Các khối chức năng ............................................................................................................................................ 18
+   3. Phương án thiết kế 1 .......................................................................................................................................... 19
+       3.1 Luồng dữ liệu .............................................................................................................................................. 19
+       3.2 Giai đoạn truy vết ........................................................................................................................................ 20
+       3.3 Giao tiếp bên ngoài ..................................................................................................................................... 20
+       3.4 FSM điều khiển ........................................................................................................................................... 20
+       3.5 Đánh giá phương án .................................................................................................................................... 21
+       3.6 Đối chiếu với các thiết kế hiệu năng cao ..................................................................................................... 23
+   4. Phương án Pipeline cải tiến ............................................................................................................................... 24
+       A. Thiết kế sơ đồ khối tổng quan ...................................................................................................................... 24
+       4.1 Dataflow phương án Pipeline ...................................................................................................................... 25
+       4.2 Tổng hợp các tín hiệu sử dụng .................................................................................................................... 26
+       4.3 FSM Điều khiển .......................................................................................................................................... 27
+       4.4. Đánh giá phương án thiết kế 2 ................................................................................................................... 28
+A. Tìm hiểu cơ sở lý thuyết
+1. Khái niệm mã tích chập
+-Mã tích chập, hay Convolutional Code, là một loại mã sửa lỗi có bộ nhớ. Đặc điểm quan trọng của mã
+tích chập là đầu ra tại một thời điểm không chỉ phụ thuộc vào bit đầu vào hiện tại mà còn phụ thuộc vào
+một số bit đầu vào trước đó. Các bit trước đó được lưu lại trong các phần tử nhớ, thường được hiện thực
+bằng các thanh ghi dịch.
+-Gọi bit đầu vào tại thời điểm 𝑖 là 𝑢𝑖, các bit trước đó lần lượt là 𝑢𝑖1 , 𝑢𝑖−1 , 𝑢𝑖−2 , . . . , 𝑢𝑖−𝑚 , trong đó 𝑚 là
+số phần tử nhớ của bộ mã hóa. Khi đó, một bit đầu ra của mã tích chập có thể được mô tả tổng quát như
+sau:
+                                         𝑐𝑖 = 𝑓(𝑢𝑖 , 𝑢𝑖−1 , 𝑢𝑖−2 , . . . , 𝑢𝑖−𝑚 )
+-Trong đó, (f) là hàm logic xác định bởi cấu trúc bộ mã hóa. Với mã tích chập nhị phân, hàm (f) thường
+được xây dựng từ các phép XOR giữa bit hiện tại và các bit đang được lưu trong thanh ghi dịch.
+-Nếu bộ mã hóa có (n) đầu ra, tại mỗi thời điểm sẽ tạo ra (n) bit mã hóa. Mỗi bit đầu ra được xác định bởi
+một đa thức sinh riêng. Dạng tổng quát của bit đầu ra thứ (j) tại thời điểm (i) có thể viết như sau:
+                                                 𝑚
+                                            (𝑗)     (𝑗)
+                                           𝑣𝑖 = ∑ 𝑔𝑙 𝑢𝑖−𝑙 (𝑚𝑜𝑑 2)
+                                                𝑙=0
+
+-Trong đó:
+          (𝑗)
+    ▪    𝑣𝑖 là bit đầu ra thứ 𝑗 tại thời điểm 𝑖;
+    ▪    𝑢𝑖−𝑙 là bit đầu vào hiện tại hoặc các bit trước đó;
+          (𝑗)
+    ▪    𝑔𝑙 là hệ số của đa thức sinh thứ 𝑗, có giá trị 0 hoặc 1;
+    ▪    phép cộng theo modulo 2 tương đương với phép XOR trong mạch số;
+    ▪    (m) là số phần tử nhớ của bộ mã hóa.
+-Công thức trên cho thấy đầu ra của mã tích chập được tạo ra bằng cách kết hợp có chọn lọc các bit đầu
+                                         (𝑗)
+vào hiện tại và quá khứ. Nếu hệ số 𝑔𝑙          = 1, bit 𝑢𝑖−𝑙 tham gia vào phép XOR để tạo đầu ra. Nếu
+ (𝑗)
+𝑔𝑙      = 0, bit đó không ảnh hưởng đến đầu ra tương ứng.
+-Cấu trúc cơ bản của một bộ mã hóa tích chập gồm ba thành phần chính: chuỗi bit đầu vào, các thanh ghi
+dịch dùng để lưu trạng thái và các mạch XOR tạo bit đầu ra theo các đa thức sinh. Nhờ có các phần tử
+nhớ, một bit thông tin đầu vào có thể ảnh hưởng đến nhiều bit mã hóa đầu ra ở các thời điểm khác nhau.
+Đây chính là lý do mã tích chập có khả năng tạo ra sự dư thừa có cấu trúc trong chuỗi dữ liệu.
+- Mã được mô tả với 3 tham số (n,k,m)
+         Trong đó : k là số input
+                n là số output
+                m là ô nhớ lưu trữ m giá trị bit trước đó
+-n bit đầu ra hiện tại là sự kết hợp tuyến tính của k bit đầu vào hiện tại và m bit đầu vào trước đó. Do m
+được tạo ra để lưu các khối k bit đầu vào nên m gọi là bậc bộ nhớ của mã tích chập. Khi có k.L bit đầu
+vào thì ta có n.L bit đầu ra. Để reset thanh ghi dịch và tăng khả năng sửa lỗi các bit cuối khi có sai, ta
+them vào m bit “0” vào cuối khung truyền, khi đó ta nhận được n(m+L) bit đầu ra
+
+
+-Ví dụ cho mã tích chập (2,1,3)
+Trong đó: n = 2, m = 3 , k =1
+R là tốc độ mã hóa hoặc tỉ lệ mã hóa (R = k/n =1/2 : cứ 1 bit vào sẽ tạo ra 2 bit mã hóa)
+
+
+
+
+2. Mã hóa mã tích chập
+- Cách tạo mã chập
+
+
+
+
+Mạch trên gồm :
+       1 thanh ghi dịch m bit (m =3)
+       n mạch cộng module_2 (n =2)
+       1 bộ dồn kênh để đưa tín hiệu liên tục ở đầu ra
+
+
+Mạch cộng module_2 được thực hiện bằng mạch logic XOR
+Tất cả mã tích chập đều được tạo ra nhờ thanh ghi dịch có hàm hồi tiếp là hàm cộng module_2
+
+
+Dãy thông tin u = (u0,u1,u2,…) được đưa vào mạch mã hóa lần lượt từng bit. Hai dãy ra của mạch tạo
+mã là v(1) =(v0(1), v1(1), v2(1),…)
+       Và v(2) = (v0(2),v1(2),v2(2),…)
+
+
+Sau khi mã hóa, hai đầu ra v(1),v(2) sẽ được dồn lại thành 1 dãy đơn vị v
+       v được gọi là từ mã. Từ mã này được truyền qua kênh thông tin
+Từ mã v được biểu diễn bởi công thức:
+       v = (v0(1) v0(2), v1(1) v1(2), v2(1) v2(2),…)
+       2.1. Lập mã chập bằng biểu đồ liên kết
+       Cho bộ mã chập (2,1,3)
+
+
+
+
+Bộ mã hóa trên có n các vecto liên kết, mỗi vecto liên kết là một bộ cộng module_2
+Mỗi vecto liên kết có kích thước k và mô tả liên kết của thanh ghi dịch lập mã đến bộ cộng module_2
+Trong vecto liên kết:
+      Số”1” vị trí thứ i của vecto chỉ ra tầng tương ứng trên thanh ghi dịch được liên kết với bộ cộng
+module_2 và số “0” chỉ ra vị trí tương ứng trên thanh ghi không liên kết với bộ cộng module_2
+
+
+Với hình trên, vecto liên kết cho bộ cộng module_2 là:
+G1 = 111
+G2 = 101
+
+
+Xét bản tin u = 101 và được mã hóa chập bởi bộ lập mã theo hình trên
+Bản tin có 3 bit, bộ mã có 3 ô nhớ
+Ta cần them 3 bit ( 0 0 0) để đưa bộ mã hóa về trạng thái ban đầu
+Kết quả bit thực hiện được theo từng thời điểm sau:
+
+
+
+
+Tại thời điểm t1:
+
+
+
+
+Tại thời điểm t1, Bit 1 của bản tin u được đẩy vào thanh ghi dịch đang có trạng thái là 000. Lúc này trạng
+thái của thanh ghi thay đổi thành 100. Bộ mã hóa thực hiện các phép XOR thu được kết quả v1 và v2
+V1 = 1 ⊕ 0 ⊕ 0 = 1
+V2 = 1 ⊕ 0 = 1
+V= V1V2 = 11
+
+
+
+
+Tại thời điểm t2:
+Tại thời điểm t2, bit “0” của bản tin u tiếp tục được đưa vào thanh ghi dịch , trạng thái thanh ghi lúc này
+thay đổi từ thời điểm t1 là 100 sang thời điểm t2 là 010. Kết quả bộ mã hóa thu được
+V1 = 0 ⊕ 1 ⊕ 0 = 1
+V2 = 0 ⊕ 0 = 0
+V = V1V2 = 10
+
+
+Tại thời điểm t3
+
+
+
+
+Tại thời điểm t3, bit 1 của bản tin u được đưa vào thanh ghi dịch, thanh ghi dịch thay đổi trạng thái 010
+(thời điểm t2) sang trạng thái 101 ( thời điểm t3), bộ mã hóa thu được
+V1 = 1 ⊕ 0 ⊕ 1 = 0
+V2 = 1 ⊕ 1 = 0
+V = V1V2 = 00
+
+
+Tại thời điểm t4, khi ta đã đưa đầy đủ các bit của bản tin vào bộ mã hóa rồi thì ta tiếp tục đẩy them 3 bit
+0 vào bộ mã hóa để reset lại trạng thái ban đầu
+Bit 0 được đẩy vào thanh ghi dịch, trạng thái thay đổi từ 101(thời điểm t3) thành 010(thời diểm t4), bộ
+mã hóa thu được
+V1 = 0 ⊕ 1 ⊕ 0 = 1
+V2 = 0 ⊕ 0 = 0
+V = V1V2 = 10
+
+
+Tại thời điểm t5:
+
+
+
+
+Bit 0 được đẩy vào thanh ghi dịch, trạng thái thay đổi từ 010 ( thời điểm t4) thành 001 ( thời điểm t5), bộ
+mã hóa thu được
+V1 = 0 ⊕ 0 ⊕ 1 = 1
+V2 = 0 ⊕ 1 = 1
+V = V1V2 = 11
+
+
+
+
+Tại thời điểm t6
+Bit 0 tiếp tục được đẩy vào thanh ghi dịch, trạng thái thanh ghi thay đổi từ 001 ( thời điểm t5) thành 000
+(thời điểm t6), bộ mã hóa thu được
+V1 = 0 ⊕ 0 ⊕ 0 = 0
+V2 = 0 ⊕ 0 = 0
+V = V1V2 = 00
+Kết quả:
+Bit vào : 101
+Bit reset: 000
+Bit ra : 11 10 00 10 11 00
+
+3. Quá trình giải mã
+ 3.1 Thuật toán Viterbi
+      -Thuật toán giải mã Viterbi dựa vào phương pháp xác định ML(Maximum Likelyhood), số
+đo hợp lẽ cho một từ mã là tổng các số đo hợp lẽ ứng với mỗi nhánh của từ mã
+       -Trong lưới mã của ta tính toán và gắn số đo hợp lý cho mỗi nhánh tương ứng
+      -Trên cơ sở tính toán ta tiến hành duyệt từ mã từ đầu đến cuối và cộng các số đo hợp lý
+tương ứng với mỗi lần duyệt, đường nào có số đo hợp lý nhỏ nhất (survival path) sẽ tương
+ứng với từ mã tối ưu
+      -Thuật toán Viterbi đưa ra cách giải quyết điều này, số đo hợp lý được tính toán bằng
+khoảng cách Hamming, tương ứng với độ hợp lẽ cực đại ta sẽ được khoảng cách Hamming là
+nhỏ nhất
+ 3.2 Khoảng cách Hamming
+      -Để đánh giá mức độ sai lệch của dữ liệu thu được, thuật toán sử dụng phép đo Khoảng
+cách Hamming.
+       -Khoảng cách Hamming giữa 2 chuỗi bit có cùng chiều dài là số lượng các vị trí mà tại
+đó các bit tương ứng khác nhau.
+        -Tại mỗi chặng thời gian (tương ứng 1 cặp bit đầu vào), bộ giải mã sẽ tính toán Lỗi
+chặng (Branch Metric - BM) bằng cách so sánh cặp bit thực tế nhận được với 6 các cặp bit đầu
+ra lý tưởng trên từng nhánh của sơ đồ Trellis.
+        -𝐵𝑀 càng nhỏ, xác suất nhánh đó là con đường đúng càng cao
+
+
+ 3.3. Trellis
+3.3.1. Khái niệm
+        -Sơ đồ lưới là sự trải phẳng đồ thị chuyển trạng thái của bộ mã hóa theo trục thời gian. Do bộ mã
+hóa có chiều dài ràng buộc 𝐾 = 3, đồ thị Trellis sẽ có 4 trạng thái (00, 01, 10, 11) tại mỗi bước thời gian
+𝑡𝑖 . Dựa vào trạng thái khởi tạo mặc định 00, đồ thị Trellis chia làm 2 giai đoạn hoạt động rõ rệt.
+        -Giai đoạn khởi động: Diễn ra trong 2 chu kỳ thời gian đầu tiên (𝑡0 → 𝑡2 ). Tại 𝑡0 , hệ thống chắc
+chắn ở trạng thái 00. Từ 𝑡0 đến 𝑡1 , đồ thị chỉ rẽ ra 2 nhánh đi đến trạng thái 00 và 10. Từ 𝑡1 đến 𝑡2 , từ 2
+trạng thái này tiếp tục rẽ ra 4 nhánh đi tới cả 4 trạng thái. Đặc điểm cốt lõi của giai đoạn này là không có
+sự chồng chéo nhánh (mỗi trạng thái đích chỉ nhận đúng 1 đường đi vào).
+        -Giai đoạn ổn định: Bắt đầu từ thời điểm 𝑡2 trở đi. Lúc này, cả 4 trạng thái đều đã được kích hoạt.
+Từ bất kỳ thời điểm 𝑡𝑛 sang 𝑡𝑛+1 (𝑛 > 2), mỗi trạng thái đích sẽ luôn nhận đúng 2 nhánh khác nhau đổ
+về từ 2 trạng thái ở bước trước đó. Sự hội tụ này đòi hỏi thuật toán phải có cơ chế chọn lọc để tránh bùng
+nổ tổ hợp đường đi.
+
+3.3.2. Xây dựng sơ đồ lưới (trellis)
+        -Để xây dựng sơ đồ lưới, ta dựa trên FSM và tuân thủ nguyên tắc giống như biểu diễn FSM
+       -Cụ thể khi có bit đầu vào là”0” ta biểu diễn bằng nét đứt và khi có bit đầu vào là “1” ta biểu diễn
+bằng nét liền
+        -Sự chuyển trạng thái theo FSM, ví dụ ở trạng thái S0, khi có bit “0” vào thì S0 -> S0, khi có bit 1
+vào thì S0 -> S1
+
+
+3.3.3. Nguyên lý tìm đường đi tối ưu
+        -Thuật toán Viterbi dựa trên nguyên lý tối ưu Bellman ( Dynamic Programming): Nếu đường đi
+tối ưu qua một nút S ở thời điểm t, thì phần đường đi từ điểm bắt đầu đến S cũng phải là đường đi tối ưu
+đến nút S đó.
+       -Nguyên lý hoạt động qua từng bước thời gian t:
+                1. Khởi tạo metric
+                        +Tại t=0, trạng thái khởi đầu là S0 = 00 có khoảng cách tích lũy = 0
+                        +Các trạng thái còn lại khởi tạo = ∞
+                 2.Tính metric nhánh (BM)
+                        +Tại mỗi bước thời gian t, thuật toán so sánh cặp bit nhận được từ kênh truyền 𝑟𝑡
+với cặp bit lý thuyết 𝑣𝑡 của các nhánh chuyển trạng thái.
+                        +Sử dụng khoảng cách Hamming giữa 𝑟𝑡 và 𝑣𝑡 chính là metric của nhánh
+                 3. Thuật toán ADD- Compare – Select
+                        +Với mỗi trạng thái Sj tại thời điểm t, ta luôn có 2 nhánh chuyển trạng thái từ bước
+t-1 dẫn tới nó
+                     +ADD(Cộng): Cộng Path Metric của trạng thái nguồn ở bước t-1 với Branch
+Metric tương ứng của nhánh đó
+
+
+                          Candidate Metric𝟏 = PM(𝐒𝐚 , 𝐭 − 𝟏) + BM(𝐒𝐚 → 𝐒𝐣 )
+
+
+                          Candidate Metric𝟐 = PM(𝐒𝐛 , 𝐭 − 𝟏) + BM(𝐒𝐛 → 𝐒𝐣 )
+
+
+                        +Compare (So sánh): So sánh hai giá trị Candidate Metric vừa tính
+                        +Select (Chọn): Chọn giá trị nhỏ nhất làm giá trị Path Metric mới cho Sj tại bước t
+                               PM(𝑺𝒋 , 𝒕) = 𝒎𝒊𝒏(Candidate Metric𝟏 , Candidate Metric𝟐 )
+                 4. Survival Path:
+              Nhánh cho giá trị nhỏ hơn được giữ lại làm đường duy nhất tới Sj, nhánh còn lại bị loại bỏ
+       hoàn toàn
+
+
+
+
+3.3.4. Quá trình truy vết (Traceback)
+        -Khi toàn bộ chuỗi 16 bit mã hóa đã được đưa vào bộ giải mã và xử lý xong khối ACS, hệ thống
+sẽ tiến hành đánh giá 4 giá trị Path Metric cuối cùng tại thời điểm kết thúc. Trạng thái có 𝑃𝑀 nhỏ nhất sẽ
+được chọn làm điểm xuất phát. Từ điểm này, bộ giải mã sẽ truy xuất lại bộ nhớ để lần ngược (Traceback)
+theo các quyết định "Chọn" của khối ACS trong quá khứ. Mỗi bước lùi về trước sẽ xác định chính xác
+một nhánh đã đi qua, từ đó ánh xạ ngược ra bit dữ liệu gốc (𝐼𝑛𝑝𝑢𝑡 là 0 hay 1). Kết quả của quá trình truy
+vết chính là chuỗi 8 bit thông tin ban đầu đã được khôi phục và loại bỏ nhiễu.
+
+3.3.5. Ví dụ minh họa chứng minh thuật toán có khả năng sửa lỗi
+        -Giả sử cho bộ mã hóa chập (2,1,2) với G = [7,5] , xác định chuỗi bit mã hóa cho chuỗi thông tin
+u = [1 1 0 1]. Khi truyền qua kênh, giả sử chuỗi bit thu được bị lỗi tại vị trí bit thứ 5.
+      -Từ quá trình mã hóa đã được trình bày ở trên, bộ mã hóa sẽ thu được output là
+                                      11 10 00 10 00 10 11
+      Giả thiết cho bit lỗi ở vị trí bit số 5 nên chuỗi bit nhận được :
+                                      11 10 10 10 00 10 11
+
+
+
+
+      Quá trình giải mã:
+       -Bước 1: Từ sơ đồ bộ mã ta xây dựng bảng các trạng thái của bộ mã và bảng chuyển dịch
+trạng thái để có thể xây dựng FSM
+
+
+      Bảng các trạng thái
+                     Trạng thái thanh ghi                                 Trạng thái Si
+             X2                                 X1                         i = x2+2x1
+              0                                  0                             0
+              1                                  0                             1
+              0                                  1                             2
+              1                                  1                             3
+
+
+      Bảng chuyển dịch trạng thái
+Trạng thái hiện       Trạng thái kế tiếp (Si+1)                   Output
+      tại
+     (Si)           Input = 0           Input =1      Input = 0            Input = 1
+      0                 0                  1             00                   11
+      1                 2                  3             10                   01
+      2                 0                  1             11                   00
+      3                 2                  3             01                   10
+
+
+     -Bước 2: Từ bảng chuyển dịch trạng thái ta thu được FSM
+
+
+
+
+     -Bước 3: Lập Trellis
+Quá trình giải mã Viterbi từng bước thời gian 𝒕
+
+
+
+
+-Khởi tạo (𝒕 = 𝟎):
+                     PM(𝑆0 ) = 0,   PM(𝑆1 ) = ∞,   PM(𝑆2 ) = ∞,   PM(𝑆3 ) = ∞
+-Bước 𝒕 = 𝟏 (𝒓𝟏 = 𝟏𝟏):
+                 𝑢=0
+   •   Từ 𝑆0 (00) → 𝑆0 (00) (𝑣 = 00): PM = 0 + 𝑑𝐻 (11,00) = 2
+                 𝑢=1
+   •   Từ 𝑆0 (00) → 𝑆1 (10) (𝑣 = 11): PM = 0 + 𝑑𝐻 (11,11) = 0 ⟹ PM(𝐒𝟏 ) = 𝟎
+Tóm tắt 𝑡 = 1: PM(𝑆0 ) = 2, PM(𝑆1 ) = 0, PM(𝑆2 ) = ∞, PM(𝑆3 ) = ∞
+-Bước 𝒕 = 𝟐 (𝒓𝟐 = 𝟏𝟎):
+       Đến 𝑆0 (00): từ 𝑆0 → 𝑆0 (𝑣 = 00): 2 + 𝑑𝐻 (10,00) = 3 ⟹ PM(𝑆0 ) = 3
+       Đến 𝑆1 (10): từ 𝑆0 → 𝑆1 (𝑣 = 11): 2 + 𝑑𝐻 (10,11) = 3 ⟹ PM(𝑆1 ) = 3
+       Đến 𝑆2 (01): từ 𝑆1 → 𝑆2 (𝑣 = 10): 0 + 𝑑𝐻 (10,10) = 0 ⟹ PM(𝐒𝟐 ) = 𝟎
+       Đến 𝑆3 (11): từ 𝑆1 → 𝑆3 (𝑣 = 01): 0 + 𝑑𝐻 (10,01) = 2 ⟹ PM(𝐒𝟑 ) = 𝟐
+Tóm tắt 𝑡 = 2: PM(𝑆0 ) = 3, PM(𝑆1 ) = 3, PM(𝑆2 ) = 0, PM(𝑆3 ) = 2
+-Bước 𝒕 = 𝟑 (𝒓𝟑 = 𝟏𝟎 - Bít lỗi):
+       Đến 𝑆0 (00):
+              Từ 𝑆0 → 𝑆0 (𝑣 = 00): 3 + 𝑑𝐻 (10,00) = 4
+              Từ 𝑆2 → 𝑆0 (𝑣 = 11): 0 + 𝑑𝐻 (10,11) = 1
+                          ⟹ PM(𝐒𝟎 ) = 𝐦𝐢𝐧(𝟒, 𝟏) = 𝟏     (giữ đường từ 𝑆2 )
+       Đến 𝑆1 (10):
+              Từ 𝑆0 → 𝑆1 (𝑣 = 11): 3 + 𝑑𝐻 (10,11) = 4
+              Từ 𝑆2 → 𝑆1 (𝑣 = 00): 0 + 𝑑𝐻 (10,00) = 1
+                          ⟹ PM(𝐒𝟏 ) = 𝐦𝐢𝐧(𝟒, 𝟏) = 𝟏     (giữ đường từ 𝑆2 )
+       Đến 𝑆2 (01):
+              Từ 𝑆1 → 𝑆2 (𝑣 = 10): 3 + 𝑑𝐻 (10,10) = 3
+              Từ 𝑆3 → 𝑆2 (𝑣 = 01): 2 + 𝑑𝐻 (10,01) = 4
+                                         ⟹ PM(𝑆2 ) = 3
+       Đến 𝑆3 (11):
+              Từ 𝑆1 → 𝑆3 (𝑣 = 01): 3 + 𝑑𝐻 (10,01) = 5
+              Từ 𝑆3 → 𝑆3 (𝑣 = 10): 2 + 𝑑𝐻 (10,10) = 2
+                                         ⟹ PM(𝑆3 ) = 2
+       Tóm tắt 𝒕 = 𝟑: PM(𝑺𝟎 ) = 𝟏, PM(𝑺𝟏 ) = 𝟏, PM(𝑺𝟐 ) = 𝟑, PM(𝑺𝟑 ) = 𝟐
+-Bước 𝒕 = 𝟒 (𝒓𝟒 = 𝟏𝟎):
+       Đến 𝑆0 (00): từ 𝑆0 → 𝑆0 (𝑣 = 00): 1 + 𝑑𝐻 (10,00) = 2 ⟹ PM(𝑆0 ) = 2
+       Đến 𝑆1 (10): từ 𝑆0 → 𝑆1 (𝑣 = 11): 1 + 𝑑𝐻 (10,11) = 2 ⟹ PM(𝑆1 ) = 2
+       Đến 𝑺𝟐 (𝟎𝟏): từ 𝑺𝟏 → 𝑺𝟐 (𝒗 = 𝟏𝟎): 𝟏 + 𝒅𝑯 (𝟏𝟎, 𝟏𝟎) = 𝟏 ⟹ PM(𝐒𝟐 ) = 𝟏
+       Đến 𝑆3 (11): từ 𝑆1 → 𝑆3 (𝑣 = 01): 1 + 𝑑𝐻 (10,01) = 3 ⟹ PM(𝑆3 ) = 3
+       Tóm tắt 𝒕 = 𝟒: PM(𝑺𝟎 ) = 𝟐, PM(𝑺𝟏 ) = 𝟐, PM(𝑺𝟐 ) = 𝟏, PM(𝑺𝟑 ) = 𝟑
+-Bước 𝒕 = 𝟓 (𝒓𝟓 = 𝟎𝟎):
+       Đến 𝑆0 (00): từ 𝑆2 → 𝑆0 (𝑣 = 11): 1 + 𝑑𝐻 (00,11) = 3 ⟹ PM(𝑆0 ) = 3
+       Đến 𝑺𝟏 (𝟏𝟎): từ 𝑺𝟐 → 𝑺𝟏 (𝒗 = 𝟎𝟎): 𝟏 + 𝒅𝑯 (𝟎𝟎, 𝟎𝟎) = 𝟏 ⟹ PM(𝐒𝟏 ) = 𝟏
+       Đến 𝑆2 (01): từ 𝑆0 → 𝑆2 ... ⟹ PM(𝑆2 ) = 3
+       Đến 𝑆3 (11): từ 𝑆0 → 𝑆3 ... ⟹ PM(𝑆3 ) = 3
+       Tóm tắt 𝒕 = 𝟓: PM(𝑺𝟎 ) = 𝟑, PM(𝑺𝟏 ) = 𝟏, PM(𝑺𝟐 ) = 𝟑, PM(𝑺𝟑 ) = 𝟑
+-Bước 𝒕 = 𝟔 (𝒓𝟔 = 𝟏𝟎 - Bít tail 𝟎):
+       Đến 𝑺𝟐 (𝟎𝟏): từ 𝑺𝟏 → 𝑺𝟐 (𝒗 = 𝟏𝟎): 𝟏 + 𝒅𝑯 (𝟏𝟎, 𝟏𝟎) = 𝟏 ⟹ PM(𝐒𝟐 ) = 𝟏
+       Tóm tắt 𝒕 = 𝟔: PM(𝑺𝟐 ) = 𝟏 (Các trạng thái khác đều có PM lớn hơn).
+-Bước 𝒕 = 𝟕 (𝒓𝟕 = 𝟏𝟏 - Bít tail 𝟎):
+       Vì có bít đuôi reset thanh ghi, trạng thái kết thúc bắt buộc phải về 𝑆0 (00):
+                                 𝑢=0
+       Đến 𝑆0 (00): từ 𝑆2 (01) → 𝑆0 (00) (𝑣 = 11):
+                          PM(𝑺𝟎 , 𝟕) = PM(𝑺𝟐 , 𝟔) + 𝒅𝑯 (𝟏𝟏, 𝟏𝟏) = 𝟏 + 𝟎 = 𝟏
+
+
+Truy vết (Traceback) và Khôi phục dữ liệu
+       Điểm kết thúc có metric nhỏ nhất tại 𝑡 = 7 là 𝑆0 (00) với PM = 1.
+       Truy vết ngược theo đường đi sống sót (Survivor Path):
+    𝑆0 (00) ← 𝑆2 (01) ← 𝑆1 (10) ← 𝑆2 (01) ← 𝑆1 (10) ← 𝑆2 (01) ← 𝑆1 (10) ← 𝑆0 (00)
+           𝑢7 =0         𝑢6 =0         𝑢5 =1          𝑢4 =0           𝑢3 =1   𝑢2 =0       𝑢1 =1
+
+       Chuỗi bít thông tin khôi phục đầy đủ (gồm cả tail bits):
+                                           𝑢ˆfull = [1,0,1,0,1,0,0]
+       Bỏ 2 bít đuôi tail bits 0,0, ta thu được chuỗi thông tin gốc:
+                                               𝐮ˆ = [𝟏, 𝟎, 𝟏, 𝟎, 𝟏]
+Kết luận: Mặc dù bị lỗi bít thứ 5 trên đường truyền, thuật toán Viterbi đã loại bỏ các nhánh sai nhờ việc
+tích lũy khoảng cách Hamming tổng thể, qua đó sửa lỗi thành công và giải mã chính xác tuyệt đối bản
+tin 𝑢 = [1,0,1,0,1].
+
+
+
+B. Đề xuất phương án thiết kế
+1. Nguyên lý giải mã
+    Viterbi không quyết định từng bit ngay khi nhận được. Bộ giải mã mở rộng các đường đi trên trellis,
+cộng dồn metric, giữ lại đường tốt hơn tại mỗi trạng thái rồi truy ngược các quyết định survivor. Với hard
+decision, branch metric có thể tính bằng khoảng cách Hamming giữa symbol nhận và symbol kỳ vọng.
+                        Hình 1 Ví dụ trellis bốn trạng thái và một đường survivor
+     Nguồn sưu tầm: Wikimedia Commons, Convolutional code trellis diagram, public domain [1].
+    Hình 1 giúp hình dung rõ rằng mỗi cột là một thời điểm, còn mỗi nút là một trạng thái của encoder.
+Đường màu đỏ chỉ là một ví dụ về đường được giữ lại; trong phần cứng, ACS phải thực hiện phép cộng,
+so sánh và chọn cho từng trạng thái ở mỗi bước trellis.
+ 1. Chốt một symbol gồm hai bit mã hóa khi giao tiếp đầu vào hợp lệ.
+ 2. Tính branch metric cho các cặp bit có thể phát 00, 01, 10 và 11.
+ 3. Cộng branch metric với path metric cũ, so sánh hai đường đi vào cùng một trạng thái và lưu decision
+    bit.
+ 4. Sau symbol cuối, đọc ngược survivor memory để khôi phục chuỗi dữ liệu.
+
+2 Các khối chức năng
+
+
+
+
+                  Hình 2 Cách phân chia BMU, PMU ACSU và TBU trong một IP Viterbi
+                  Nguồn sưu tầm: Microchip, Viterbi Decoder User Guide, Figure 2-2 [2].
+    Sơ đồ của Microchip dùng ba nhóm chính: BMU tính sai khác, PMU/ACSU cập nhật path metric,
+còn TBU khôi phục chuỗi bit. Tôi dùng cách phân chia này làm mốc tham khảo, sau đó tách thêm metric
+memory, survivor memory, output buffer và FSM để sơ đồ của nhóm có thể chuyển trực tiếp sang RTL.
+
+ Khối                    Nhiệm vụ
+
+                         Chốt sym_in[1:0] khi valid và ready cùng bằng 1; giữ symbol ổn định trong
+ Input register
+                         vòng xử lý.
+
+ BMC                     Tính bốn branch metric bằng khoảng cách Hamming với 00, 01, 10 và 11.
+ Khối                   Nhiệm vụ
+
+                        Tính hai candidate đi vào một state, so sánh, chọn metric nhỏ hơn và tạo
+ ACS
+                        decision bit.
+
+                        Giữ PM_old và PM_new riêng để dữ liệu cũ không bị ghi đè trước khi xử lý
+ Metric memory
+                        xong symbol.
+
+ Survivor memory        Lưu decision của từng state tại mỗi bước trellis và cấp dữ liệu cho traceback.
+
+                        Đọc decision theo chiều ngược, xác định state trước đó và ghi bit giải mã vào
+ Traceback
+                        đệm.
+
+                        Điều khiển state index, địa chỉ RAM, chuyển bank metric và giao tiếp
+ FSM
+                        valid/ready.
+
+
+3. Phương án thiết kế 1
+
+
+
+
+                         Hình 3 Sơ đồ dataflow phương án Viterbi dùng FSM
+3.1 Luồng dữ liệu
+    Khi sym_valid và sym_ready cùng bằng 1, input register chốt cặp bit nhận vào. BMC tạo bốn branch
+metric. FSM sau đó cho ACS chạy lần lượt qua bốn state. Mỗi chu kỳ ACS tạo một PM_new và một
+decision bit. Khi đủ bốn state, decision row được ghi vào survivor memory, hai bank metric đổi vai trò và
+decoder chuyển sang symbol tiếp theo.
+3.2 Giai đoạn truy vết
+     Khi đã nhận đủ L symbol, traceback bắt đầu từ state 00 vì ví dụ dùng khung terminated với hai tail
+bit bằng 0. Survivor memory được đọc từ địa chỉ L - 1 về 0. Mỗi decision xác định state trước đó; bit giải
+mã được ghi vào output buffer theo đúng vị trí. Sau khi truy vết xong, dữ liệu được đọc từ đầu đến cuối
+và bỏ hai tail bit.
+
+3.3 Giao tiếp bên ngoài
+ Nhóm                Tín hiệu                                Ý nghĩa
+
+ Clock và điều                                               Khởi động một khung và cung cấp độ dài
+                     clk, rst_n, start, frame_len[7:0]
+ khiển                                                       L.
+
+ Đầu vào             sym_in[1:0], sym_valid, sym_ready       Nhận từng cặp bit theo cơ chế valid/ready.
+
+                                                             Xuất từng bit giải mã và cho phép phía
+ Đầu ra              bit_out, out_valid, out_ready
+                                                             nhận tạo backpressure.
+
+                                                             Báo đang xử lý, hoàn thành hoặc thông số
+ Trạng thái          busy, done, cfg_error
+                                                             khung không hợp lệ.
+
+
+3.4 FSM điều khiển
+
+
+
+
+                                 Hình 4 Trình tự trạng thái điều khiển
+    Chia FSM thành bốn giai đoạn: khởi tạo, xử lý từng symbol, truy vết và xuất kết quả. WAIT chỉ nhận
+symbol khi handshake xảy ra. ACS_RUN lặp theo số state. TB_REQ và TB_STEP được tách riêng để
+phù hợp với survivor RAM đọc đồng bộ một chu kỳ. OUTPUT giữ nguyên bit_out khi out_valid bằng 1
+nhưng out_ready bằng 0.
+ Nhóm trạng thái            Hoạt động
+
+                            Chờ start; kiểm tra L; khởi tạo PM_old[00] = 0 và đánh dấu các state còn lại
+ IDLE và INIT
+                            chưa hợp lệ.
+
+                            Nhận symbol, tính BMC, chạy ACS theo từng state, ghi survivor row,
+ WAIT đến NEXT
+                            chuyển bank và tăng t.
+
+ ENDSEL đến
+                            Chọn state cuối, đọc survivor memory và lặp truy vết đến đầu khung.
+ TB_STEP
+
+ OUTPUT và DONE             Xuất L - 2 bit thông tin; phát done trong một clock rồi trở về IDLE.
+
+    Nếu reset xảy ra, FSM trở về IDLE và các tín hiệu giao tiếp được đưa về trạng thái an toàn. Không
+xóa toàn bộ RAM vì khung mới sẽ ghi lại vùng địa chỉ được sử dụng, nhưng INIT phải khởi tạo lại path
+metric và các cờ valid.
+
+3.5 Đánh giá phương án
+
+3.5.1 Ưu điểm
+  • Chỉ dùng một ACS và tái sử dụng qua các state nên giảm số bộ cộng, bộ so sánh và multiplexer.
+  • FSM tách rõ từng thao tác, thuận lợi khi theo dõi waveform và khoanh vùng lỗi.
+  • Hai bank metric giúp kiểm soát dữ liệu cũ và dữ liệu mới, tránh ghi đè trong cùng một bước trellis.
+  • Phù hợp làm kiến trúc cơ sở trước khi tăng độ song song hoặc bổ sung pipeline.
+
+3.5.2 Nhược điểm
+  • Mỗi symbol cần nhiều chu kỳ vì ACS xử lý lần lượt từng state.
+  • Số state tăng theo 2^(K-1), do đó thời gian xử lý tăng nhanh khi K lớn hơn.
+  • Phải lưu survivor decision đến khi kết thúc khung; đầu ra chỉ có sau giai đoạn traceback.
+  • Kiến trúc hiện tại chưa nhận khung mới trong khi đang truy vết và xuất dữ liệu.
+
+3.5.3 Ước lượng theo FSM
+    Với S = 4 state, ước lượng một symbol cần S + 6 = 10 clock, gồm WAIT, BMC, ACS_INIT, bốn lần
+ACS_RUN, STORE, COMMIT và NEXT. Traceback cần khoảng 2L clock do survivor RAM có một pha
+yêu cầu và một pha sử dụng. Nếu out_ready luôn bằng 1, phần xuất payload cần L - 2 clock.
+
+ Thành phần dữ liệu                     Ước lượng với L = 128
+
+ Hai bank metric và valid               2 x 4 x 9 + 2 x 4 = 80 bit
+
+ Survivor memory                        128 x 4 = 512 bit
+
+ Output buffer                          128 x 1 = 128 bit
+
+ BMC và decision row                    4 x 2 + 4 = 12 bit
+
+ Tổng phần dữ liệu                      732 bit, chưa gồm FSM, bộ đếm và overhead ánh xạ FPGA
+    Theo lịch trên, thời gian từ start đến done là L(S + 6) + 2L + (L - 2) + 3 clock. Với L = 128 và S = 4,
+kết quả dự kiến là 1665 clock. Đây mới là ước lượng kiến trúc; số liệu cuối cùng phải lấy từ mô phỏng và
+tổng hợp RTL.
+3.6 Đối chiếu với các thiết kế hiệu năng cao
+- Nhóm tiến hành so sánh phương án FSM đề xuất với các phương án pipeline sâu để đưa ra nhận định
+được ưu – nhược điểm của phương án hiện tại, từ đó đưa ra phương án tốt hơn cho thiết kế
+
+
+
+
+                   Hình 5 Kiến trúc Viterbi theo hướng song song và pipeline sâu
+         Nguồn sưu tầm: C. Arun và V. Rajamani, Figure 2, bài báo năm 2009, CC BY 4.0 [3].
+
+ Công bố                Nền tảng và kết quả                  Điểm rút ra
+
+                                                             Xử lý nhiều bước trellis hơn trong một
+ Li và cộng sự, 2012    Xilinx XC5VLX330; 181,7 MHz;
+                                                             chu kỳ giúp tăng throughput nhưng làm
+ [4]                    throughput 363 Mb/s; radix-4.
+                                                             ACS phức tạp hơn.
+
+                                                             Chia block và xử lý hai chiều cho phép
+ Xia và cộng sự, 2017   64 state; sliding block; 640 Mb/s;
+                                                             tăng song song, đổi lại điều khiển và bộ
+ [5]                    105 mW; 0,1641 nJ/bit.
+                                                             nhớ phức tạp.
+
+                        Xilinx XC2VP2; 145 MHz; báo      Pipeline sâu cần đi kèm clock gating và
+ Arun và Rajamani,
+                        cáo giảm công suất 68,82% so với giảm chuyển mạch để tránh tăng công
+ 2009 [3]
+                        thiết kế gốc.                    suất.
+
+                                                              Sliding block có thể đạt throughput rất
+ Black và Meng, 1997    4 state, soft decision; 1 Gb/s tại 83
+                                                              cao nhưng không còn là kiến trúc tuần tự
+ [7]                    MHz trong CMOS.
+                                                              đơn giản.
+
+Nhận xét: Từ đối chiếu với các kiến trúc khác tối ưu hơn, nhóm nhận thấy phương án FSM-based hiện
+tại chưa tối ưu cho yêu cầu của bài toán
+4. Phương án Pipeline cải tiến
+Nhận xét: Phương án đề xuất 1 sử dụng chung 1 bộ ACS duy nhất tuy giảm số logic gate nhưng thiết kế
+FSM phức tạp, hiệu suất chưa cao với bài toán K = 3
+Từ đó, nhóm đề xuất phương án 2: Sử dụng kiến trúc pipeline với ACSU song song 4 trạng thái ( tối ưu
+cho K = 3 ) và thanh ghi Register-Exchange (RE-EMU)
+
+A. Thiết kế sơ đồ khối tổng quan
+
+
+
+
+      Khối ( phương án 2 )                    Nhiệm vụ                     So sánh với thiết kế 1
+ FSM ( Control Unit )              Quản lý bắt tay valid/ready, đếm   Chỉ điều phối luồng dữ liệu liên
+                                   8 bước trellis của khung và cấp    tục; không phải duyệt chỉ số
+                                   tín hiệu điều khiển cho các tầng   trạng thái (s_idx), không quản lý
+                                   pipeline                           địa chỉ RAM và không đảo bank
+                                                                      metric
+                                                                      => Như vậy, FSM của phương
+                                                                      án 2 đơn giản hơn rất nhiều
+ BMU ( Branch Metric Unit )        Chốt symbol đầu vào và tính 4      Gộp chức năng của cả Input
+                                   khoảng cách Hamming với 00,        register và BMC; cấp metric
+                                   01, 10, 11.                        đồng thời cho 4 trạng thái trong
+                                                                      1 chu kỳ mà không cần giữ
+                                                                      symbol chờ duyệt tuần tự.
+ ACSU ( Add-Compare Select         Tính đồng thời cho cả 4 trạng      Dùng 4 bộ ACS tính song song
+ Unit )                            thái: cộng metric, so sánh, chọn   cả 4 trạng thái trong 1 chu kỳ,
+                                   đường nhỏ hơn để tạo PM_new         thay vì dùng 1 bộ ACS chạy lặp
+                                   và 4 decision bit.                  tuần tự từng trạng thái (tốn 4
+                                                                       chu kỳ)
+ PMU ( Path Metric Unit )          Lưu trữ Path Metric; cấp            Cập nhật đồng thời cho cả 4
+                                   PM_old cho ACSU và cập nhật         trạng thái; không cần chia 2
+                                   PM_new sau mỗi chu kỳ.              bank nhớ riêng biệt và không
+                                                                       cần trạng thái chuyển bank để
+                                                                       chống ghi đè.
+ SMU/ TBU ( Survivor Memory        Lưu vết các đường sống sót dựa      Gộp chức năng của Survivor
+ / Traceback Unit )                trên 4 decision bit và trích xuất   memory và Traceback; cập nhật
+                                   chuỗi bit giải mã ra Output.        bit song song theo từng bước và
+                                                                       xuất ngay kết quả ở bước cuối,
+                                                                       không cần đọc ngược RAM.
+
+
+4.1 Dataflow phương án Pipeline
+
+
+
+
+4.1.1 Luồng dữ liệu
+Khi sym_valid và sym_ready cùng bằng 1, symbol đầu vào sym_in[1:0] được chốt vào khối BMU để tính
+toán song song bốn khoảng cách Hamming với các cặp mã kỳ vọng 00, 01, 10 và 11. Kết quả branch
+metric được chốt qua thanh ghi pipeline Stage 1 và cấp trực tiếp cho khối ACSU.
+Tại đây, thay vì duyệt tuần tự, bốn bộ ACS hoạt động đồng thời trong cùng một chu kỳ xung nhịp cho cả
+bốn trạng thái: cộng branch metric với path metric cũ (PM_old), so sánh và chọn đường đi có khoảng
+cách tích lũy nhỏ hơn. Khối ACSU đồng thời tạo ra bốn giá trị PM_new để cập nhật trực tiếp vào bốn
+thanh ghi PMU (chỉ sử dụng một bank duy nhất, loại bỏ việc chuyển bank metric) và xuất vector bốn bit
+quyết định (decisions[3:0]) sang tầng Register-Exchange. Dữ liệu được xử lý liên tục theo luồng đường
+ống qua 8 bước trellis (𝑡 = 0 … 7) mà không có chu kỳ chờ duyệt từng trạng thái.
+
+4.1.2 Giai đoạn truy vết và xuất dữ liệu
+Khác với phương án đọc ngược từ Survivor RAM, kiến trúc pipeline tích hợp kỹ thuật Register-
+Exchange (SMU) để thực hiện truy vết động song song với quá trình tính toán trellis. Khối SMU duy trì
+một ma trận thanh ghi gồm 4 × 8 Flip-Flop đại diện cho lịch sử đường đi sống sót của bốn trạng thái. Tại
+mỗi chu kỳ clock, dựa trên bốn bit quyết định từ ACSU, các chuỗi lịch sử được tráo đổi qua multiplexer
+và dịch nối tiếp bit thông tin mới tương ứng.
+
+
+Sau khi xử lý xong symbol thứ 8 (𝑡 = 7), toàn bộ chuỗi 8 bit giải mã của cả bốn trạng thái đã được tái
+dựng hoàn chỉnh sẵn trong ma trận thanh ghi. Khối Best State Selector chỉ cần chọn chuỗi từ trạng thái có
+Path Metric nhỏ nhất (hoặc chọn trạng thái 00 nếu khung kết thúc bằng hai tail bit 0) và đưa thẳng ra bus
+data_out[7:0] cùng cờ out_valid kích hoạt trong đúng một chu kỳ. Cơ chế này loại bỏ hoàn toàn độ trễ
+đọc ngược (traceback delay) và không cần sử dụng bộ đệm đảo thứ tự dữ liệu.
+
+4.2 Tổng hợp các tín hiệu sử dụng
+
+4.2.1. Nhóm giao tiếp bên ngoài
+             Nhóm                                Tín hiệu                          Ý nghĩa
+ Clock và điều khiển                clk, rst_n, start                  Cung cấp xung nhịp hệ thống,
+                                                                       reset bất đồng bộ tích cực mức
+                                                                       thấp và tín hiệu khởi động xử lý
+                                                                       khung mới (khung chuẩn 8
+                                                                       symbol / 16 bit mã hóa)
+ Đầu vào                            sym_in[1:0], sym_valid,            Nhận từng cặp bit mã hóa liên
+                                    sym_ready                          tục theo cơ chế bắt tay
+                                                                       (handshake) để nạp thẳng vào
+                                                                       đường ống pipeline
+ Đầu ra                             data_out[7:0], out_valid,          Xuất trọn vẹn chuỗi 8 bit dữ liệu
+                                    out_ready                          gốc đã giải mã (song song) ngay
+                                                                       khi hoàn thành trellis và hỗ trợ
+                                                                       cơ chế backpressure từ phía
+                                                                       nhận.
+ Trạng thái                         busy, done                         Báo trạng thái bộ giải mã đang
+                                                                       bận xử lý pipeline hoặc phát
+                                                                       xung báo hoàn tất giải mã một
+                                                                       khung
+
+4.2.2. Nhóm tín hiệu Pipeline Dataflow
+              Nhóm                               Tín hiệu                          Ý nghĩa
+ BMU → ACSU                         bm_comb[3:0][1:0]                  4 giá trị khoảng cách Hamming
+                                                                       (mỗi nhánh 2 bit) được chốt qua
+                                                                       thanh ghi Pipeline Stage 1.
+ PMU ↔ ACSU                         pm_old[3:0][4:0],                  Bus 4 giá trị Path Metric (5-bit):
+                                    pm_new[3:0][4:0]                   ACSU nhận pm_old và xuất
+                                                                       pm_new chốt ngược về PMU
+                                                                       sau mỗi sườn clock.
+ ACSU → SMU                         decisions[3:0]                     Vector 4 bit quyết định chọn
+                                                                       nhánh (survivor decisions) của 4
+                                                              trạng thái để điều khiển hoán
+                                                              chuyển bit.
+SMU → Output              surv_hist[3:0][7:0]                 4 chuỗi lịch sử 8-bit của 4 trạng
+                                                              thái sẵn sàng để bộ Best State
+                                                              Selector chọn ra kết quả tối ưu.
+FSM điều khiển            init_pmu, pipe_en, out_en           Các tín hiệu điều khiển nạp
+                                                              metric ban đầu, cho phép chốt
+                                                              từng tầng pipeline và kích hoạt
+                                                              xuất dữ liệu.
+
+4.3 FSM Điều khiển
+
+
+
+
+      Nhóm trạng thái                                      Hoạt động
+IDLE và INIT            - IDLE: Chờ tín hiệu start hợp lệ để bắt đầu xử lý khung dữ liệu mới (khung
+                        chuẩn 8 symbol / 16 bit mã hóa).
+                        - INIT: Kích hoạt nạp trọng số ban đầu: gán 𝑃𝑀𝑜𝑙𝑑 [00] = 0, ba trạng thái
+                        còn lại gán giá trị phạt cực đại (𝑃𝑀 = 16); reset bộ đếm bước trellis 𝑡 = 0
+                        và xóa ma trận thanh ghi lịch sử.
+WAIT_SYM và PIPE_RUN    - WAIT_SYM: Chờ và đồng bộ dữ liệu vào khi cơ chế bắt tay thành công
+                        (sym_valid = 1 và sym_ready = 1).
+       Nhóm trạng thái                                             Hoạt động
+                                  - PIPE_RUN: Thực thi toàn bộ đường ống tính toán trellis trong đúng 1 chu
+                                  kỳ xung nhịp / symbol:
+                                  1. BMU tính song song 4 khoảng cách Hamming với các mẫu 00, 01, 10, 11.
+                                  2. ACSU chạy đồng thời 4 bộ ACS, tạo ra 4 PM_new và 4 bit quyết định
+                                  (decisions[3:0])
+                                  3. PMU cập nhật song song PM_new vào thanh ghi làm PM_old (1 bank duy
+                                  nhất, không cần đảo bank).
+                                  4. SMU cập nhật ma trận thanh ghi Register-Exchange (4 × 8 Flip-Flop)
+                                  theo các bit quyết định.
+                                  5. Tăng bộ đếm 𝑡 = 𝑡 + 1. Lặp lại nếu 𝑡 < 7; khi đủ 8 symbol (𝑡 = 7)
+                                  chuyển sang SELECT.
+ SELECT                           - Bộ Best State Selector so sánh 4 giá trị Path Metric cuối cùng để tìm trạng
+                                  thái tối ưu (hoặc trỏ thẳng vào trạng thái 00 nếu khung kết thúc bằng 2 tail
+                                  bit 0).
+                                  - Chốt chuỗi 8 bit giải mã từ hàng thanh ghi tương ứng vào đệm đầu ra trong
+                                  1 chu kỳ xung nhịp (loại bỏ hoàn toàn các chu kỳ đọc ngược Traceback
+                                  RAM).
+ OUTPUT và DONE                   - OUTPUT: Đặt chuỗi 8 bit lên bus data_out[7:0], bật cờ out_valid = 1 và
+                                  giữ dữ liệu cho đến khi phía nhận phản hồi out_ready = 1 (hỗ trợ cơ chế
+                                  backpressure).
+                                  - DONE: Phát xung done trong 1 chu kỳ clock để báo hoàn tất xử lý khung
+                                  dữ liệu rồi quay về IDLE.
+
+
+Quy tắc reset: Khi có tín hiệu rst_n (tích cực mức thấp), FSM từ bất kỳ trạng thái nào đều lập tức trở về
+IDLE, xóa các cờ điều khiển và đưa các bus giao tiếp ngoài về mức an toàn.
+
+4.4. Đánh giá phương án thiết kế 2
+
+4.4.1 Ưu điểm
+    • Thời gian xử lý nhanh: 4 bộ ACS hoạt động song song giúp hoàn thành 1 symbol trong đúng 1
+       chu kỳ clock; thời gian giải mã một khung 16-bit giảm từ hơn 100 chu kỳ xuống còn 11 chu kỳ
+       xung nhịp.
+   •   Dễ đạt tần số cao: Thanh ghi pipeline phân tách rõ tầng tính metric BMU và ACSU, rút ngắn
+       đường trễ tổ hợp để vượt xa mức tần số tối thiểu 200 MHz theo yêu cầu PPA.
+   •   Loại bỏ bộ nhớ truy vết: Kỹ thuật Register-Exchange cập nhật lịch sử bit song song, xuất thẳng
+       8 bit giải mã ở chu kỳ cuối mà không cần Survivor RAM và khối Traceback đọc ngược.
+   •   Bộ nhớ metric tinh giản: PMU chỉ sử dụng 1 bank Flip-Flop duy nhất cập nhật tại cạnh xung
+       clock, loại bỏ hoàn toàn việc chia 2 bank nhớ và chu kỳ chuyển bank.
+   •   FSM điều khiển gọn nhẹ: Rút ngắn từ 14 trạng thái xuống còn 6 trạng thái luồng, không cần
+       duyệt chỉ số trạng thái nội bộ (𝑠_𝑖𝑑𝑥) hay quản lý địa chỉ RAM.
+   •   Thỏa mãn PPA: Cấu trúc dùng thanh ghi phân tán tiêu tốn ít diện tích và năng lượng, đảm bảo
+       diện tích dưới 7000 𝜇m2 và công suất dưới 1.5 mW.
+
+4.4.2 Nhược điểm
+    • Khó mở rộng khi 𝐾 lớn: Kỹ thuật Register-Exchange và ACS song song chỉ tối ưu với 𝐾 = 3 (4
+       trạng thái); khi 𝐾 tăng cao (𝐾 = 7,9), số lượng Flip-Flop và dây định tuyến sẽ tăng rất nhanh.
+   •   Công suất đỉnh cao hơn: Việc 4 bộ ACS và toàn bộ ma trận thanh ghi hoạt động đồng thời làm
+       tăng công suất chuyển mạch tức thời trong mỗi nhịp clock.
+   •   Bị giới hạn bởi vòng hồi tiếp: Tần số tối đa 𝐹max vẫn chịu giới hạn bởi đường trễ đệ quy Path
+       Metric giữa ACSU và PMU
+

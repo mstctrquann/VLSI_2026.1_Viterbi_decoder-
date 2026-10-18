@@ -1,0 +1,130 @@
+                              THUẬT TOÁN VITERBI
+● Yêu cầu:
+    Đọc hiểu thuật toán, thiết kế bộ giải mã sử dụng thuật toán viterbi.
+    Thiết kế spectification chi tiết, code RTL theo thiết kế, viết testbench, kiểm tra, tối
+    ưu.
+    Layout với các yêu cầu về PPA:
+    Frequency: min 200 MHz. Highest frequency win.
+    Diện tích: tối đa 7000 µm2
+    Công suất tiêu thụ: tối đa 1.5 mW
+● Yêu cầu thông số kỹ thuật:
+  - Constraint Length (K=3).
+  - Coding Rate (R=1/2).
+  - Sử dụng đa thức sinh 𝑥2 + 𝑥 + 1, 𝑥2 + 1.
+
+
+
+
+   ● Dữ liệu đầu vào, đầu ra:
+     - Dữ liệu đầu vào: 16 bit mã hóa.
+     - Dữ liệu đầu ra: 8 bit (thông tin trước khi mã hóa).
+   ● Test
+     - Thực hiện giải mã tất cả các chuỗi đầu vào trong file output.txt (mã hóa 16bit),
+        code testbench đọc file tự động kiểm tra so sánh với file input.txt (đầu ra
+        chuẩn). Yêu cầu pass 100%
+ I.   Tổng quan chung về mã hóa và giải mã Viterbi
+     1. Sơ đồ mã hóa và quy trình mã hóa
+
+                                            IC DESIGN LAB – 824 C7                       1
+     Xét sơ đồ mã hóa sau với 1 bit đầu vào, 2 bit đầu ra và sử dụng 2 thanh ghi dịch chứa
+     1 bit:
+
+
+
+
+                              Hình 1.1 Sơ đồ mã hóa chập
+     Với bản tin cần mã hóa là 011001, ta có các đầu ra và trạng thái của 2 thanh ghi như
+     sau: Coi tại thời điểm ban đầu trạng thái 2 thanh ghi là 00.
+     Cách thức mã hóa:
+     Đặt 2 trạng thái của 2 thanh ghi là S0 và S1. Ta có các đầu ra:
+     Output1 = Input XOR S0 XOR S1
+     Output2 = Input XOR S1
+        -Tại thời điểm đầu, S0S1 = 00, đưa bit 1 vào, ta được
+             Output1 = 1 XOR 0 XOR 0 = 1
+             Output2 = 1 XOR 0 = 1
+      - Tiếp tục đưa bit 0 vào, lúc này S0 = 1 và S1 = 0
+             Output1 = 0 XOR 1 XOR 0 = 1
+             Output2 = 0 XOR 0 = 0
+Thực hiện tương tự cho đến hết bản tin, ta được bảng sau:
+
+
+
+
+                                            IC DESIGN LAB – 824 C7                       2
+                           Bảng 1.1. Các trạng thái và đầu ra
+                      Input            Output (O1O2) States
+                      1                11                            10
+                      0                10                            01
+                      0                11                            00
+                      1                11                            10
+                      1                01                            11
+                      0                01                            01
+Như vậy cuối cùng ta thu được bản tin đã mã hóa là: 010111111011.
+Sơ đồ lưới của sơ đồ mã hóa trên:
+        t0                                                                                  t5              t6
+                      t1              t2                   t3              t4
+  00             00            00                00                  00              00               00
+
+                                                 11                  11              11               11
+  01
+                 11            11                11                  11              11               11
+                                           00                   00              00               00
+
+  10                                                             10              10
+                                            10                                                   10
+                                                 01                                   01              01
+  11                           01
+                                                                          01               01              01
+                                                      1              10               10              10
+
+
+                              Hình 1.2 Sơ đồ lưới mã chập
+   2. Giải mã bằng thuật toán Viterbi
+    -    Bản tin mã hóa trên sau khi đã chia nhỏ ra thành các phần với độ dài 2 bit ta
+         được: 01 01 11 11 10 11
+    -   Phần cuối của bản tin là “11” được chọn làm phần đầu để đưa vào giải mã
+        Trên sơ đồ lưới, ta thấy trong khoảng từ t0 -> t1 có 2 giá trị đầu ra xuất hiện là
+        00 và 11. Khoảng cách Hamming giữa bản tin “11” với 2 đầu ra này là 2 và 0.
+        Chọn đường đi có khoảng cách Hamming là 0, đó là đường đi từ trạng thái 00 -
+        > 10, với bit vào là bit 1.
+
+                                                          IC DESIGN LAB – 824 C7                                 3
+       -   Tiếp tục thực hiện với phần tiếp theo bản tin là “10” được đưa vào để tính
+           khoảng cách Hamming trong khoảng t1 -> t2. Tuy nhiên ở đây chỉ quan tâm
+           đến 2 giá trị đầu ra trên 2 đường xuất phát từ trạng thái 10, vì đây là trạng thái
+           kết thúc của đường được chọn trước đó.
+           Hai giá trị đầu ra ở đây là 10 và 01 với các khoảng cách Hamming là 0 và 2.
+           Chọn đường đi chứa giá trị 10, đi từ trạng thái 10 đến 01 với bit vào là 0.
+       -   Thực hiện tương tự cho đến hết chiều dài bản tin và sơ đồ lưới, ta được đường
+           đi như bên dưới:
+                       t0                 t1             t2              t3                t4               t5                 t6
+                  00
+
+                                     00             00              00                00               00                 00
+
+                                                                    11                11               11                 11
+                  01
+                                     11             11              11                11               11                 11
+                                                              00                 00              00                  00
+
+                  10                                           10                 10              10                 10
+                                                                    01                                 01                 01
+
+                                                    01
+                  11                                                                       01               01                 01
+                                                                         1            10               10                 10
+                                Hình 2.1. Sơ đồ lưới sau khi giải mã
+ Bản tin mã hóa                 11             10             11                 11         01                   01
+ Các bit đã giải mã         1                  0              0              1              1                    0
+Sau giải mã, thu được bản tin gốc: 011001
+Công cụ giải thuật Viterbi Decoding online:
+http://www.ee.unb.ca/cgi-bin/tervo/viterbi2.pl
+Tài liệu tham khảo thêm về Viterbi:
+[1] http://web.mit.edu/6.02/www/f2010/handouts/lectures/L9.pdf.
+[2] https://www.youtube.com/watch?v=dKIf6mQUfnY
+
+
+
+
+                                                              IC DESIGN LAB – 824 C7                                                4
+

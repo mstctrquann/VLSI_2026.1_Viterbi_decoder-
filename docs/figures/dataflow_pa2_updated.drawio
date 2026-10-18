@@ -1,0 +1,45 @@
+<mxfile host="app.diagrams.net" pages="2" scale="1" border="0">
+  <diagram name="1-Overview-PA2-General" id="pa2-overview-gen">
+    <mxGraphModel dx="1420" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1480" pageHeight="620" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" value="SƠ ĐỒ KHỐI TỔNG QUAN PHƯƠNG ÁN 2 — KIẾN TRÚC PIPELINE (K=3, R=1/2)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="300" y="20" width="840" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="ctrl" value="CONTROL UNIT (FSM &amp; Bộ đếm step_cnt[2:0]: t = 0..7)&#xa;Handshake in_valid/in_ready, khởi tạo PMU (init_pmu), điều phối dịch tầng Pipeline &amp; PSU chọn đầu ra" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="340" y="95" width="760" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="s0" value="STAGE 0: INPUT PSU&#xa;Parallel-to-Serial Unit&#xa;16b Reg + MUX 8:1&#xa;-&gt; curr_sym[1:0]" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="100" y="240" width="190" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="s1" value="STAGE 1: BMU&#xa;4 Hamming Distance&#xa;(00, 01, 10, 11)&#xa;-&gt; bm_reg[3:0][1:0]" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="350" y="240" width="190" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="s2" value="STAGE 2: ACSU (x4)&#xa;4 Bộ ACS Song Song&#xa;Add - Compare - Select&#xa;-&gt; pm_next, decisions" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1f5fe;strokeColor=#0288d1;fontStyle=1;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="600" y="240" width="210" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="s3" value="STAGE 3: SMU (RE)&#xa;Register-Exchange&#xa;Ma trận 4 x 8 FF&#xa;-&gt; surv_hist[3:0][7:0]" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="870" y="240" width="200" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="s4" value="STAGE 4: PSU &amp; OUT&#xa;Path Selection Unit&#xa;Min-PM + MUX 4:1&#xa;-&gt; dec_out[7:0]" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1130" y="240" width="190" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="pmu" value="PMU (1 Bank duy nhất)&#xa;4 x 5-bit Flip-Flop&#xa;Init: PM[0]=0, PM[1..3]=16" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="600" y="430" width="210" height="100" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram name="2-Dataflow-PA2-General" id="pa2-dataflow-gen">
+    <mxGraphModel dx="1920" dy="980" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1920" pageHeight="980" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="df_title" value="SƠ ĐỒ DATAFLOW CHI TIẾT PHƯƠNG ÁN 2 — PIPELINE 5 TẦNG (INPUT PSU, BMU, 4x ACS, SMU 4x8 &amp; OUTPUT PSU)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="320" y="20" width="1280" height="50" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

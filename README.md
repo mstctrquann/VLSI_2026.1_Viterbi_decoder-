@@ -127,54 +127,7 @@ VLSI_2026.1/
 ```
 
 ---
-
-## 3. Những Điểm Cần Chỉnh Sửa & Bổ Sung Từ Báo Cáo Tuần 1
-
-Qua khảo sát thực tế bộ test vector của đề bài và chạy kiểm chứng trên Golden Model Python, nhóm đã làm rõ những điểm kỹ thuật quan trọng cần đính chính và cải tiến so với Báo cáo Tuần 1 (W1):
-
-```mermaid
-flowchart TD
-    subgraph W1_Baseline["Hạn chế trong Báo cáo Tuần 1"]
-        A1["Nhầm lẫn tên file: output.txt (16b) vs input.txt (8b)"]
-        A2["PM dùng 5-bit + phạt khởi tạo 16 (Lãng phí diện tích & trễ)"]
-        A3["Vòng ACS: Cộng trước rồi mới So sánh (Critical Path dài)"]
-        A4["Register-Exchange: 4x8 FF (Lưu thừa 2 bit tail)"]
-        A5["Chưa rõ cấu trúc khung: Tưởng khung không có tail bit"]
-        A6["Giao tiếp ngoài: Nhận nối tiếp 2-bit, tốn chu kỳ điều phối"]
-    end
-
-    subgraph W2_Optimized["Cải tiến chuẩn hóa cho Tuần 2 & RTL"]
-        B1["Xác nhận chuẩn: input.txt là 16b mã hóa, output.txt là 8b chuẩn"]
-        B2["Thu gọn PM xuống 3-bit, candidate tối đa = 7, không tràn"]
-        B3["Kỹ thuật Compare // Add: So sánh song song trên hiệu PM"]
-        B4["Thu gọn ma trận RE xuống 4x6 FF (Tiết kiệm 25% diện tích)"]
-        B5["Khung có 2 bit tail '00', trạng thái cuối luôn quy tụ về S00"]
-        B6["Top-level nạp song song 16-bit, pipeline xử lý 1 symbol/clock"]
-    end
-
-    A1 --> B1
-    A2 --> B2
-    A3 --> B3
-    A4 --> B4
-    A5 --> B5
-    A6 --> B6
-```
-
-### Bảng đối chiếu chi tiết các điểm cần sửa đổi:
-
-| STT | Vấn đề trong Báo cáo W1 | Thực tế & Phân tích nguyên nhân | Giải pháp hiệu chỉnh trong Spec Tuần 2 & RTL |
-| :---: | :--- | :--- | :--- |
-| **1** | **Tên file & Chiều dữ liệu:**<br>Đề text ghi: nạp `output.txt` (16b), so với `input.txt` (8b). | Kiểm tra file thực tế: `input.txt` chứa 1025 dòng 16-bit mã hóa; `output.txt` chứa 1025 dòng 8-bit gốc. Thầy đặt tên file theo góc nhìn Encoder (input = data gốc, output = code). | **Quy định chuẩn:**<br>Bộ giải mã nhận đầu vào từ `input.txt` (16-bit) và so sánh kết quả với `output.txt` (8-bit). Testbench đọc đúng format này. |
-| **2** | **Cấu trúc khung & Bit đuôi (Tail bits):**<br>W1 chưa khẳng định rõ cấu trúc 8-bit đầu ra. | Kiểm tra 1025 mẫu `output.txt`: **100% các dòng đều kết thúc bằng `00`** ở 2 bit cuối ($u_6=0, u_7=0$). Dữ liệu gồm 6 bit payload + 2 bit tail reset encoder về $S_{00}$. | Tận dụng tính chất này: Trạng thái đích ở $t=7$ luôn là $S_{00}$. Cho phép trích xuất kết quả trực tiếp từ hàng thanh ghi $S_{00}$ mà không cần bộ so sánh 4 trạng thái phức tạp. |
-| **3** | **Độ rộng bit Path Metric (PM):**<br>W1 đề xuất PM 5-bit (hoặc 9-bit), khởi tạo phạt bằng 16. | Chạy vét cạn 65,536 tổ hợp: với khung 8 bước, PM lớn nhất chỉ đạt **5**, candidate tối đa là **7**. Do đó **3-bit là hoàn toàn đủ** ($0 \div 7$), không bao giờ xảy ra tràn số (overflow). | Giảm độ rộng PM từ 5-bit xuống **3-bit**.<br>$\implies$ Tiết kiệm diện tích thanh ghi, bộ cộng và bộ so sánh nhỏ hơn, giảm 30% trễ đường hồi tiếp. |
-| **4** | **Cơ chế khởi động Trellis:**<br>W1 dùng giá trị phạt lớn (16) để loại trừ các trạng thái khác $S_{00}$ ở $t=0$. | Ở $t=0, 1$, chỉ có 1 đường hợp lệ vào các nút Trellis. Ép quyết định rẽ nhánh (Forced Decision) ở 2 chu kỳ đầu giúp PM tự nhiên chuẩn hóa mà không cần gán giá trị vô cùng. | Dùng cơ chế **Forced Decision** ở $t=0, 1$: tất cả PM thanh ghi reset về `000`, tín hiệu điều khiển ép chọn nhánh hợp lệ. Khớp chính xác 100% với Viterbi chuẩn. |
-| **5** | **Nút thắt đường tới hạn ACS:**<br>W1 dùng kiến trúc Add-Compare-Select tuần tự (Cộng BM rồi mới so sánh Candidate). | Với mã $K=3$, hai nhánh đi vào cùng một trạng thái luôn có bit kỳ vọng bù nhau ($BM_1 = 2 - BM_0$). Do đó phép so sánh phụ thuộc vào hiệu $(PM_1 - PM_0)$ và một ngưỡng cố định. | **Kỹ thuật Compare // Add:** Tách phép so sánh chạy song song với phép cộng. Đường hồi tiếp chỉ còn: Trừ 3-bit $\rightarrow$ Mux 2:1 chọn PM mới ($\le 5$ mức cổng logic). |
-| **6** | **Kích thước ma trận Register-Exchange:**<br>W1 thiết kế ma trận 4 hàng × 8 cột = 32 Flip-Flop. | Vì 2 bit cuối của khung chắc chắn là $u_6=0, u_7=0$ (chính là chỉ số trạng thái $S_{00}$), ma trận RE chỉ cần lưu vết lịch sử của **6 bit đầu tiên** ($u_0 \div u_5$). | Giảm kích thước ma trận xuống **4 × 6 = 24 Flip-Flop**.<br>$\implies$ Giảm 25% diện tích SMU và giảm tải điện dung cho tín hiệu Clock. |
-| **7** | **Giao tiếp ngoài & Thông lượng:**<br>W1 thiết kế giao tiếp nhận từng cặp 2-bit `sym_in[1:0]` tốn nhiều chu kỳ handshake. | Yêu cầu bài toán là xử lý trọn gói 16-bit vào $\rightarrow$ 8-bit ra. | Thiết kế cổng Top nhận bus song song `data_in[15:0]`, bộ tuần tự hóa bên trong tự động cấp symbol mỗi chu kỳ. Hỗ trợ nạp khung mới ngay chu kỳ thứ 8 (Throughput tối đa). |
-
----
-
-## 4. Kiến Trúc Pipeline Datapath & Công Nghệ Lõi (Tài Liệu Nội Bộ Cho Nhóm Thiết Kế RTL)
+## 3. Kiến Trúc Pipeline Datapath & Công Nghệ Lõi (Tài Liệu Nội Bộ Cho Nhóm Thiết Kế RTL)
 
 > [!IMPORTANT]
 > **Chiến lược phân tách 2 phiên bản của Nhóm 27 (Báo cáo Tổng quát vs. Code RTL Công Nghệ Lõi):**
